@@ -80,6 +80,7 @@ trap(struct trapframe *tf)
 
   //PAGEBREAK: 13
   default:
+    cprintf("tf->trapno: %d\n", tf->trapno);
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
@@ -109,4 +110,37 @@ trap(struct trapframe *tf)
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit();
+}
+
+void HandleSignals(){
+  uint index = 1;
+  int signum;
+  struct proc* p = myproc();
+
+  if(p == 0){
+    return;
+  }
+
+  for(signum = 0 ; signum < 32 ; signum++){
+    int isOn = index & p->pending_signals & p->signal_mask;
+
+    if(isOn){
+      switch((int) (p->signal_handlers[signum])){
+        /// call default signal handler
+        case 0:
+          DefaultHandler(signum);
+          break;
+        ///sig ignore
+        case 1:
+          IgnoreSignal(index);
+          break;
+        /// call user signal handler
+        default:
+          /// p->signal_handlers[signum](signum);
+          break;
+      }
+    }
+
+    index = index << 1;
+  }
 }

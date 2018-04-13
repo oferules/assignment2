@@ -107,7 +107,7 @@ int             cpuid(void);
 void            exit(void);
 int             fork(void);
 int             growproc(int);
-int             kill(int);
+int             kill(int, int);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
 void            pinit(void);
@@ -123,6 +123,8 @@ void            yield(void);
 uint 			sigprocmask(uint);
 sighandler_t 	signal(int, sighandler_t);
 void 			sigret(void);
+void			DefaultHandler(int);
+void 			IgnoreSignal(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

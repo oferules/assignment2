@@ -144,6 +144,12 @@ getcmd(char *buf, int nbuf)
 int
 main(void)
 {
+  int pid=fork();
+    if (pid==0){
+     while(1)  {} 
+    }
+    printf(1,"pid: %d\n", pid);
+  
   static char buf[100];
   int fd;
 

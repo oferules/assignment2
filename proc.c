@@ -26,6 +26,10 @@ pinit(void)
   initlock(&ptable.lock, "ptable");
 }
 
+int GetSignalStatus(int signum, struct proc* p){
+  return (int) (p->pending_signals & (1 << (uint) signum));
+}
+
 // Must be called with interrupts disabled
 int
 cpuid() {
@@ -101,7 +105,7 @@ found:
   p->state = EMBRYO;
   release(&ptable.lock);
   p->pid = allocpid();
-
+  p->stopped = 0;
 
   // Allocate kernel stack.
   if((p->kstack = kalloc()) == 0){
@@ -161,7 +165,7 @@ userinit(void)
 
   /// set signal handle to default
   p->pending_signals = 0;
-  p->signal_mask = 0;
+  p->signal_mask = (uint) -1;
   int i;
   for(i = 0; i < 32 ; i++){
     p->signal_handlers[i] = 0;
@@ -370,6 +374,11 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
+      if(p->stopped && !GetSignalStatus(SIGCONT, p))
+        continue;
+
+      ///if(p->pending_signals sigstop && sigcont not on)
+
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -511,17 +520,30 @@ wakeup(void *chan)
 // Process won't exit until it returns
 // to user space (see trap in trap.c).
 int
-kill(int pid)
+kill(int pid, int signum)
 {
   struct proc *p;
 
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
-      p->killed = 1;
+      /// sending sigstop to a sleeping process will be ignored
+      /// sending sigcont to a not sleeping process will be ignored
+      if((signum == SIGSTOP && p->stopped)
+        || (signum == SIGCONT && !p->stopped)){
+        release(&ptable.lock);
+        return 0;
+      }
+
+      /// turn on signal at pending_signals[signum]
+      uint index = 1 << signum;
+      p->pending_signals |= index;
+
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+      }
+
       release(&ptable.lock);
       return 0;
     }
@@ -580,5 +602,62 @@ sighandler_t signal(int signum, sighandler_t handler){
 }
 
 void sigret(){
-  
+
+}
+
+void handleKill(int signum){
+  /// clear from pending signals
+  uint index = 1 << signum;
+
+  acquire(&ptable.lock);
+  myproc()->killed = 1;
+  myproc()->pending_signals &= !index;
+  release(&ptable.lock);
+}
+
+void handleStop(){
+  struct proc* p = myproc();
+
+  /// clear from pending signals
+  uint index = 1 << SIGSTOP;
+
+  acquire(&ptable.lock);
+  p->stopped = 1;
+  p->pending_signals &= !index;
+  release(&ptable.lock);
+
+  /// we want to stop the process
+  yield();
+}
+
+void handleCont(){
+  struct proc* p = myproc();
+
+  /// clear from pending signals
+  uint index = 1 << SIGCONT;
+          
+  acquire(&ptable.lock);
+  p->stopped = 0;
+  p->pending_signals &= !index;
+  release(&ptable.lock);
+}
+
+void DefaultHandler(int signum){
+  switch(signum){
+    case(SIGCONT):
+      handleCont();
+      break;
+    case(SIGSTOP):
+      handleStop();
+      break;
+    default:
+      handleKill(signum);
+      break;
+  }
+}
+
+void IgnoreSignal(int index){
+  acquire(&ptable.lock);
+  myproc()->pending_signals &= !index;
+  release(&ptable.lock);
 }
