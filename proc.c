@@ -158,6 +158,17 @@ userinit(void)
   // run this process. the acquire forces the above
   // writes to be visible, and the lock is also needed
   // because the assignment might not be atomic.
+
+  /// set signal handle to default
+  p->pending_signals = 0;
+  p->signal_mask = 0;
+  int i;
+  for(i = 0; i < 32 ; i++){
+    p->signal_handlers[i] = 0;
+  }
+
+  p->trapframe_backup = 0;
+
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
@@ -211,6 +222,17 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+
+  /// set signal handle to parent
+  np->pending_signals = 0;
+  np->signal_mask = curproc->signal_mask;
+
+  for(i = 0; i < 32 ; i++){
+    np->signal_handlers[i] = curproc->signal_handlers[i];
+  }
+
+  /// TODO do trapframe backup
+  /// np->trapframe_backup = 0;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -543,4 +565,20 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+uint sigprocmask(uint sigmask){
+  uint oldMask = myproc()->signal_mask;
+  myproc()->signal_mask = sigmask;
+  return oldMask;
+}
+
+sighandler_t signal(int signum, sighandler_t handler){
+  sighandler_t oldHandler = myproc()->signal_handlers[signum];
+  myproc()->signal_handlers[signum] = handler;
+  return oldHandler;
+}
+
+void sigret(){
+  
 }

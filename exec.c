@@ -93,6 +93,14 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
+  /// change signal handler to default unless it sig ignore
+  for(i = 0; i < 32 ; i++){
+    if((int) curproc->signal_handlers[i] != 1)
+    {
+      curproc->signal_handlers[i] = 0;
+    }
+  }
+
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
   curproc->pgdir = pgdir;

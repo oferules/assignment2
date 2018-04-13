@@ -89,3 +89,36 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int
+sys_sigprocmask(void)
+{
+  /// TODO: check if we need arg uint
+  int sigmask;
+
+  if(argint(0, &sigmask) < 0){
+    return -1;
+  }
+
+  return sigprocmask((uint) sigmask);
+}
+
+int
+sys_signal(void)
+{
+  int signum;
+  sighandler_t handler;
+
+  if(argint(0, &signum) < 0 || argptr(1, (char**) &handler, 4) < 0 ){
+    return -1;
+  }
+
+  return (int) signal(signum, handler);
+}
+
+int
+sys_sigret(void)
+{
+  sigret();
+  return 0;
+}

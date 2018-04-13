@@ -23,6 +23,9 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+uint sigprocmask(uint);
+sighandler_t signal(int, sighandler_t);
+void sigret(void);
 
 // ulib.c
 int stat(char*, struct stat*);
