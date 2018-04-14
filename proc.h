@@ -53,7 +53,8 @@ struct proc {
   uint pending_signals;
   uint signal_mask;
   void* signal_handlers[32];
-  struct trapframe *trapframe_backup;
+  struct trapframe* trapframe_backup;
+  uint signal_mask_backup;
 };
 
 // Process memory is laid out contiguously, low addresses first:

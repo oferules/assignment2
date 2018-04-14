@@ -18,6 +18,7 @@ int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
 extern void call_sigret(void);
+extern void call_sigret_end(void);
 
 static void wakeup1(void *chan);
 
@@ -172,8 +173,6 @@ userinit(void)
     p->signal_handlers[i] = 0;
   }
 
-  p->trapframe_backup = 0;
-
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
@@ -235,9 +234,6 @@ fork(void)
   for(i = 0; i < 32 ; i++){
     np->signal_handlers[i] = curproc->signal_handlers[i];
   }
-
-  /// TODO do trapframe backup
-  /// np->trapframe_backup = 0;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -607,9 +603,11 @@ sighandler_t signal(int signum, sighandler_t handler){
 }
 
 void sigret(){
+  cprintf("in sigret\n");
   struct proc* p = myproc();
   acquire(&ptable.lock);
-  memmove(p->tf, p -> trapframe_backup, sizeof(struct trapframe));
+  memmove(p->tf, &p->trapframe_backup, sizeof(*p->tf));
+  p->signal_mask = p->signal_mask_backup;
   release(&ptable.lock);
 }
 
@@ -678,24 +676,32 @@ void UserHandleSignal(int signum, int index){
   /// turn off signal   
   myproc()->pending_signals &= !index;
   
-  /// backup trapframe
-  memmove(p -> trapframe_backup, p->tf, sizeof(struct trapframe));
+  /// backup trapframe and signal_mask
+  memmove(&p->trapframe_backup, p->tf, sizeof(*p->tf));
+  p->signal_mask_backup = p->signal_mask;
+  p->signal_mask = 0;
   sighandler_t userHandler = p->signal_handlers[signum];
 
   /// change instruction pointer of user mode to userHandler
   p->tf->eip = (uint) userHandler;
-  int* stackPointer = (int*) p->tf->esp;  
+  char* stackPointer = (char*) p->tf->esp;  
+
+  int memsize = call_sigret_end - call_sigret;
+  stackPointer -= memsize;
+  int injectedCodeAddress = (int) stackPointer;
 
   /// Inject into user stack the syscall to sigret
-  memmove(stackPointer, call_sigret, 8);
-
+  memmove(stackPointer, call_sigret, memsize);
+  stackPointer -= 4;
   /// push arg
-  *(stackPointer + 8) = signum;
+  *(int*)stackPointer = signum;
+  stackPointer -= 4;
 
   /// push return address to return the injected code 
-  *(stackPointer + 12) = (int) stackPointer;
+  *(int*)stackPointer = injectedCodeAddress;
 
   /// fix stack
-  p->tf->esp += 16;
+  p->tf->esp = (uint) stackPointer;
+
   release(&ptable.lock);
 }

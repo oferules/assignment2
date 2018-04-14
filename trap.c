@@ -120,6 +120,7 @@ void HandleSignals(){
   if(p == 0){
     return;
   }
+  
 
   for(signum = 0 ; signum < 32 ; signum++){
     int isOn = index & p->pending_signals & p->signal_mask;
@@ -136,7 +137,7 @@ void HandleSignals(){
           break;
         /// call user signal handler
         default:
-          UserHandleSignal(signum,index);
+          UserHandleSignal(signum, index);
           break;
       }
     }

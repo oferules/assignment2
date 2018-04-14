@@ -36,6 +36,8 @@ trapret:
 
 # injected code to call sigret
 .global call_sigret
+.global call_sigret_end
 call_sigret:
-	movl SYS_sigret, %eax
-	int $T_SYSCALL
+  movl $SYS_sigret, %eax
+  int $T_SYSCALL
+call_sigret_end:
