@@ -591,14 +591,18 @@ procdump(void)
 }
 
 uint sigprocmask(uint sigmask){
+  acquire(&ptable.lock);
   uint oldMask = myproc()->signal_mask;
   myproc()->signal_mask = sigmask;
+  release(&ptable.lock);
   return oldMask;
 }
 
 sighandler_t signal(int signum, sighandler_t handler){
+  acquire(&ptable.lock);
   sighandler_t oldHandler = myproc()->signal_handlers[signum];
   myproc()->signal_handlers[signum] = handler;
+  release(&ptable.lock);
   return oldHandler;
 }
 
@@ -610,12 +614,13 @@ void sigret(){
 }
 
 void handleKill(int signum){
+  struct proc* p = myproc();
   /// clear from pending signals
   uint index = 1 << signum;
 
   acquire(&ptable.lock);
-  myproc()->killed = 1;
-  myproc()->pending_signals &= !index;
+  p->killed = 1;
+  p->pending_signals &= !index;
   release(&ptable.lock);
 }
 
@@ -666,10 +671,13 @@ void IgnoreSignal(int index){
   release(&ptable.lock);
 }
 
-void UserHandleSignal(int signum){
+void UserHandleSignal(int signum, int index){
   struct proc* p = myproc();
   acquire(&ptable.lock);
-
+  
+  /// turn off signal   
+  myproc()->pending_signals &= !index;
+  
   /// backup trapframe
   memmove(p -> trapframe_backup, p->tf, sizeof(struct trapframe));
   sighandler_t userHandler = p->signal_handlers[signum];

@@ -125,7 +125,7 @@ sighandler_t 	signal(int, sighandler_t);
 void 			sigret(void);
 void			DefaultHandler(int);
 void 			IgnoreSignal(int);
-void      UserHandleSignal(int);
+void      UserHandleSignal(int,int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
