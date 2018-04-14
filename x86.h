@@ -144,6 +144,18 @@ lcr3(uint val)
   asm volatile("movl %0,%%cr3" : : "r" (val));
 }
 
+
+static inline int cas(volatile void * addr, int expected, int newval) {
+  int ret = 1;
+  // cmpxchgl 1 2 :Compare EAX with 1. If equal, ZF is set and 2 is loaded into 1. Else, clear ZF and load 1 into EAX.
+  asm volatile("lock; cmpxchgl %3, (%2); jz equal ; movl $0, %0 ; equal: ; " // eax == [ebx] ? [ebx] = newval : eax = [ebx]
+                : "=m"(ret)
+                : "a"(expected), "b"((int*)addr), "r"(newval)
+                : "memory");
+  return ret;
+}
+
+
 //PAGEBREAK: 36
 // Layout of the trap frame built on the stack by the
 // hardware and by trapasm.S, and passed to trap().

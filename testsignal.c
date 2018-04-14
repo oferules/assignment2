@@ -1,6 +1,7 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#include "x86.h"
 
 void user1Hanlder(int);
 void user2Hanlder(int);
@@ -76,6 +77,27 @@ main(int argc, char *argv[])
     printf(1, "stop and cont signals test passed!\n");
     
     printf(1, "all signal tests passed!\n");
+    
+    
+    printf(1, "test cas\n");
+    int inadd=0;
+    int expected= 0;
+    int newval=1;
+    int bol= cas(&inadd,expected,newval);
+
+    if(!bol || inadd!=1 ){
+        printf(1, "cas test FAILED\n");
+    }
+    
+    inadd=0;
+    expected= 1;
+    newval=2;
+    bol= cas(&inadd,expected,newval);
+
+    if(bol || inadd!=0 ){
+        printf(1, "cas test FAILED\n");
+    }
+    printf(1, "cas test passed!\n");
     exit();
 }
 
