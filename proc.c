@@ -17,6 +17,7 @@ static struct proc *initproc;
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
+extern void call_sigret(void);
 
 static void wakeup1(void *chan);
 
@@ -602,7 +603,10 @@ sighandler_t signal(int signum, sighandler_t handler){
 }
 
 void sigret(){
-
+  struct proc* p = myproc();
+  acquire(&ptable.lock);
+  memmove(p->tf, p -> trapframe_backup, sizeof(struct trapframe));
+  release(&ptable.lock);
 }
 
 void handleKill(int signum){
@@ -659,5 +663,31 @@ void DefaultHandler(int signum){
 void IgnoreSignal(int index){
   acquire(&ptable.lock);
   myproc()->pending_signals &= !index;
+  release(&ptable.lock);
+}
+
+void UserHandleSignal(int signum){
+  struct proc* p = myproc();
+  acquire(&ptable.lock);
+
+  /// backup trapframe
+  memmove(p -> trapframe_backup, p->tf, sizeof(struct trapframe));
+  sighandler_t userHandler = p->signal_handlers[signum];
+
+  /// change instruction pointer of user mode to userHandler
+  p->tf->eip = (uint) userHandler;
+  int* stackPointer = (int*) p->tf->esp;  
+
+  /// Inject into user stack the syscall to sigret
+  memmove(stackPointer, call_sigret, 8);
+
+  /// push arg
+  *(stackPointer + 8) = signum;
+
+  /// push return address to return the injected code 
+  *(stackPointer + 12) = (int) stackPointer;
+
+  /// fix stack
+  p->tf->esp += 16;
   release(&ptable.lock);
 }

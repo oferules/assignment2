@@ -136,7 +136,7 @@ void HandleSignals(){
           break;
         /// call user signal handler
         default:
-          /// p->signal_handlers[signum](signum);
+            UserHandleSignal(signum);
           break;
       }
     }
