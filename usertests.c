@@ -776,6 +776,7 @@ concreate(void)
   file[0] = 'C';
   file[2] = '\0';
   for(i = 0; i < 40; i++){
+    printf(1, "i: %d\n", i);
     file[1] = '0' + i;
     unlink(file);
     pid = fork();

@@ -137,6 +137,7 @@ void HandleSignals(){
           break;
         /// call user signal handler
         default:
+          cprintf("signum: %d, index: %d, p->signal_handlers[signum]: %d\n", signum, index, p->signal_handlers[signum]);
           UserHandleSignal(signum, index);
           break;
       }

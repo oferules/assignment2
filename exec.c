@@ -95,9 +95,9 @@ exec(char *path, char **argv)
 
   /// change signal handler to default unless it sig ignore
   for(i = 0; i < 32 ; i++){
-    if((int) curproc->signal_handlers[i] != 1)
+    if((int) curproc->signal_handlers[i] != SIG_IGN)
     {
-      curproc->signal_handlers[i] = 0;
+      curproc->signal_handlers[i] = (void*) SIG_DFL;
     }
   }
 
