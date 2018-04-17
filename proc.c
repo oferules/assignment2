@@ -83,6 +83,8 @@ allocpid(void)
 }
 
 
+
+
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
@@ -94,21 +96,18 @@ allocproc(void)
   struct proc *p;
   char *sp;
 
-  pushcli();
-  do{
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->state == UNUSED){
-            break;
-        }
-    }
-    if(p == &ptable.proc[NPROC]){
-        popcli();
-        return 0;
-    }
-  } while(!cas(&p->state, UNUSED, EMBRYO));
+  acquire(&ptable.lock);
 
-  popcli();
-  
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    if(p->state == UNUSED)
+      goto found;
+
+  release(&ptable.lock);
+  return 0;
+
+found:
+  p->state = EMBRYO;
+  release(&ptable.lock);
   p->pid = allocpid();
   p->stopped = 0;
 
@@ -173,7 +172,7 @@ userinit(void)
   p->signal_mask = (uint) -1;
   int i;
   for(i = 0; i < 32 ; i++){
-    p->signal_handlers[i] = 0;
+    p->signal_handlers[i] = (void*) SIG_DFL;
   }
 
   acquire(&ptable.lock);

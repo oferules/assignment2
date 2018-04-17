@@ -128,11 +128,11 @@ void HandleSignals(){
     if(isOn){
       switch((int) (p->signal_handlers[signum])){
         /// call default signal handler
-        case 0:
+        case SIG_DFL:
           DefaultHandler(signum);
           break;
         ///sig ignore
-        case 1:
+        case SIG_IGN:
           IgnoreSignal(index);
           break;
         /// call user signal handler
