@@ -101,6 +101,7 @@ exec(char *path, char **argv)
     }
   }
 
+  curproc->handlingSignal = 0;
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
   curproc->pgdir = pgdir;

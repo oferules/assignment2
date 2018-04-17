@@ -112,33 +112,37 @@ trap(struct trapframe *tf)
     exit();
 }
 
-void HandleSignals(){
+void HandleSignals(struct trapframe *tf){
   uint index = 1;
   int signum;
   struct proc* p = myproc();
 
-  if(p == 0){
+  if(p == 0 || (tf->cs&3) != DPL_USER){
     return;
   }
   
-
   for(signum = 0 ; signum < 32 ; signum++){
     int isOn = index & p->pending_signals & p->signal_mask;
 
     if(isOn){
+      p->signal_mask_backup = p->signal_mask;
+      p->handlingSignal = 1;
+      p->signal_mask = 0;
       switch((int) (p->signal_handlers[signum])){
         /// call default signal handler
         case SIG_DFL:
           DefaultHandler(signum);
-          break;
+          return;
         ///sig ignore
         case SIG_IGN:
-          IgnoreSignal(index);
-          break;
+          pushcli();
+          finishHandlingSignal(signum, p);
+          popcli();
+          return;
         /// call user signal handler
         default:
           UserHandleSignal(signum, index);
-          break;
+          return;
       }
     }
 

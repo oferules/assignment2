@@ -32,7 +32,7 @@ struct context {
   uint eip;
 };
 
-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE , MINUS_UNUSED};
 
 struct trapframebu {
   // registers as pushed by pusha
@@ -90,6 +90,7 @@ struct proc {
   void* signal_handlers[32];
   struct trapframebu trapframe_backup;
   uint signal_mask_backup;
+  int handlingSignal;
 };
 
 // Process memory is laid out contiguously, low addresses first:
