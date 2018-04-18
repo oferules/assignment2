@@ -26,6 +26,7 @@ main(int argc, char *argv[])
     }
     printf(1, "created process with pid: %d\n", pid);
     kill(pid, 1);
+    printf(1, "kill finished\n");
     wait();
     printf(1, "user handle test passed!\n");
     

@@ -1755,7 +1755,7 @@ main(int argc, char *argv[])
     exit();
   }
   close(open("usertests.ran", O_CREATE));
-
+/*
   argptest();
   createdelete();
   linkunlink();
@@ -1767,8 +1767,12 @@ main(int argc, char *argv[])
   bigwrite();
   bigargtest();
   bsstest();
-  sbrktest();
-  validatetest();
+  sbrktest();  */
+  int i;
+  for(i = 0 ; i < 100 ; i++){
+    printf(1, "i = %d\n", i);
+    validatetest();
+  }
 
   opentest();
   writetest();

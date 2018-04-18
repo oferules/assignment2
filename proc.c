@@ -82,9 +82,6 @@ allocpid(void)
   return pid + 1;
 }
 
-
-
-
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
@@ -230,7 +227,7 @@ fork(void)
   *np->tf = *curproc->tf;
 
   /// set signal handle to parent
-  np->pending_signals = 0;
+ np->pending_signals = 0;
   np->handlingSignal = curproc->handlingSignal;
   np->signal_mask = curproc->signal_mask;
 
@@ -250,7 +247,9 @@ fork(void)
 
   pid = np->pid;
 
-  np->state = RUNNABLE;
+  if(!cas(&np->state, EMBRYO, RUNNABLE)){
+  	panic("cas failed in fork");
+  }
 
   return pid;
 }
@@ -282,10 +281,12 @@ exit(void)
   curproc->cwd = 0;
 
   pushcli();
-  curproc->state = -ZOMBIE;
+  if(!cas(&curproc->state, RUNNING, -ZOMBIE)){
+  	panic("cas failed in exit");
+  }
 
   // Parent might be sleeping in wait().
-  wakeup1(curproc->parent);
+  
 
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -313,8 +314,11 @@ wait(void)
   pushcli();
 
   for(;;){
-  	p->state = -SLEEPING;
-    p->chan = curproc;
+  	if(!cas(&curproc->state, RUNNING, -SLEEPING)){
+  		panic("first cas failed in wait");
+    }
+
+    curproc->chan = curproc;
 
     // Scan through table looking for exited children.
     havekids = 0;
@@ -333,9 +337,13 @@ wait(void)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
-        p->chan = 0;
-        cas(&curproc->state, -SLEEPING, RUNNING);
-        cas(&p->state, MINUS_UNUSED, UNUSED);
+        curproc->chan = 0;
+        if(!cas(&curproc->state, -SLEEPING, RUNNING)){
+  			panic("second cas failed in wait");
+        }
+        if(!cas(&p->state, MINUS_UNUSED, UNUSED)){
+  			panic("third cas failed in wait");
+        }
         popcli();
         return pid;
       }
@@ -344,7 +352,9 @@ wait(void)
     // No point waiting if we don't have any children.
     if(!havekids || curproc->killed){
       curproc->chan = 0;
-      cas(&curproc->state, -SLEEPING, RUNNING);
+      if(!cas(&curproc->state, -SLEEPING, RUNNING)){
+      	panic("fourth cas faild in wait");
+      }
       popcli();
       return -1;
     }
@@ -375,14 +385,24 @@ scheduler(void)
     pushcli();
     // Loop over process table looking for process to run.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+	/*if(p->killed){
+      	cprintf("p->state: %d\n", p->state);
+      	if(p->state == SLEEPING){
+   	  		cas(&p->state, SLEEPING, RUNNABLE);
+   	  	}
+      }*/
+
       if(!cas(&p->state, RUNNABLE, RUNNING))
         continue;
 
       if(p->stopped && !GetSignalStatus(SIGCONT, p)){
-      	p->state = RUNNABLE;
+      	if(!cas(&p->state, RUNNING, RUNNABLE)){
+      		panic("first cas failed in scheduler");
+      	}
         continue;
       }
 
+      
       ///if(p->pending_signals sigstop && sigcont not on)
 
       // Switch to chosen process.  It is the process's job
@@ -399,9 +419,15 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
 
-	  /// complete transition from almost state to state
-	  if(myproc()->state < 0)
-		myproc()->state = -myproc()->state;
+	  /// if state was -zombie we want to wake up parent
+      if(cas(&p->state, -ZOMBIE, ZOMBIE)){
+      	wakeup1(p->parent);
+      }
+
+      /// complete transition from almost state to state
+	  if((int) p->state < 0){
+	  	p->state = -p->state;
+	  }
     }
 
     popcli();
@@ -437,7 +463,10 @@ void
 yield(void)
 {
   pushcli();
-  myproc()->state = -RUNNABLE;
+  if(!cas(&myproc()->state, RUNNING, -RUNNABLE)){
+	panic("cas failed in yield");
+  }
+
   sched();
   popcli();
 }
@@ -479,14 +508,18 @@ sleep(void *chan, struct spinlock *lk)
   pushcli();
   p->chan = chan;
 
+  if(!cas(&p->state, RUNNING, -SLEEPING)){
+	panic("cas failed in sleep");
+  }
+
   release(lk);
-  
+
   sched();
 
   acquire(lk);
 
   // Tidy up.
-  p->chan = 0;
+  //p->chan = 0;
   popcli();
 }
 
@@ -498,17 +531,22 @@ wakeup1(void *chan)
 {
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if((p->state == SLEEPING || p->state == -SLEEPING) && p->chan == chan){
 
       /// waiting for process to sleep
       while(p->state == -SLEEPING){
-
       }
 
       /// if state is not sleeping do nothing
-      cas(&p->state, SLEEPING, RUNNABLE);
+      if(cas(&p->state, SLEEPING, -RUNNABLE)){
+      	p->chan = 0;
+      	if(!cas(&p->state, -RUNNABLE, RUNNABLE)){
+      		panic("cas failed at wakeup1");
+      	}
+      }
     }
+  }
 }
 
 // Wake up all processes sleeping on chan.
@@ -521,7 +559,7 @@ wakeup(void *chan)
 }
 
 int shouldChangeToRunnable(struct proc* p, int signum){
-	return p->state == SLEEPING && signum != SIGCONT && 
+	return (p->state == SLEEPING || p->state == -SLEEPING) && signum != SIGCONT && 
 		signum != SIGSTOP && p->signal_handlers[signum] == (void*) SIG_DFL;
 }
 
@@ -550,12 +588,9 @@ kill(int pid, int signum)
 
       do{
       	currentPendings = p->pending_signals;
-      } while(cas(&p->pending_signals, currentPendings, currentPendings | index));
+      } while(!cas(&p->pending_signals, currentPendings, currentPendings | index));
 
-      // Wake process from sleep if necessary.
-      if(shouldChangeToRunnable(p, signum)){
-        cas(&p->state, SLEEPING, RUNNABLE);
-      }
+      
 
       popcli();
       return 0;
@@ -587,7 +622,7 @@ procdump(void)
   uint pc[10];
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->state == UNUSED)
+    if(p->state == UNUSED || p->state == MINUS_UNUSED)
       continue;
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
@@ -635,7 +670,7 @@ void finishHandlingSignal(int signum, struct proc* p){
 
   do{
   	currentPendings = p->pending_signals;
-  } while(cas(&p->pending_signals, currentPendings, currentPendings & !index));
+  } while(!cas(&p->pending_signals, currentPendings, currentPendings & !index));
 
   /// backup trapframe and signal_mask
   p->signal_mask = p->signal_mask_backup;
@@ -729,7 +764,7 @@ void UserHandleSignal(int signum, int index){
 
   do{
   	currentPendings = p->pending_signals;
-  } while(cas(&p->pending_signals, currentPendings, currentPendings & !index));
+  } while(!cas(&p->pending_signals, currentPendings, currentPendings & !index));
 
   popcli();
 }
