@@ -68,7 +68,7 @@ sys_sleep(void)
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(myproc()->killed){
+    if(myproc()->killed || GetSignalStatus(SIGKILL, myproc())){ /// added second condition to prevent deadlock that a process goes to sleep with no one to wake him
       release(&tickslock);
       return -1;
     }

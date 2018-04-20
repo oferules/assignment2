@@ -120,12 +120,13 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-uint 			sigprocmask(uint);
+uint 		sigprocmask(uint);
 sighandler_t 	signal(int, sighandler_t);
-void 			sigret(void);
-void			DefaultHandler(int);
-void  			finishHandlingSignal(int, struct proc*);
-void      		UserHandleSignal(int,int);
+void 		sigret(void);
+void		DefaultHandler(int);
+void  		finishHandlingSignal(int, struct proc*);
+void      	UserHandleSignal(int,int);
+int             GetSignalStatus(int,struct proc*);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

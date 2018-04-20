@@ -678,7 +678,6 @@ void finishHandlingSignal(int signum, struct proc* p){
 }
 
 void sigret(){
-  cprintf("in sigret\n");
   struct proc* p = myproc();
   pushcli();
   memmove(p->tf, &p->trapframe_backup, sizeof(*p->tf));

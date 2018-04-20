@@ -3,71 +3,78 @@
 #include "user.h"
 #include "x86.h"
 
-void user1Hanlder(int);
-void user2Hanlder(int);
+
 
 int flag = 1;
+int pid;
 
-int
-main(int argc, char *argv[])
-{
-    printf(1, "enter signal tests\n");
+
+void
+user1Hanlder(int signum){
+    printf(1, "I handle first signal %x\n", signum);
+    flag = !flag;
+ 
+}
+
+void userHandlerTest(){
+    printf(1, "\nenter signal tests\n");
     
     /// test user handle signal
+    printf(1, "\nuser handler test- create a child with hanlder\n");
     sighandler_t handler = user1Hanlder;
     signal(1, handler);
     
-    int pid=fork();
+    pid=fork();
     if (pid==0){
         // new process handle Signal 1 with above function
         while(flag)  {}
-        printf(1, "flag off\n");
         exit();
     }
-    printf(1, "created process with pid: %d\n", pid);
     kill(pid, 1);
-    printf(1, "kill finished\n");
     wait();
-    printf(1, "user handle test passed!\n");
-    
-    
+    printf(1, "user handler test PASSED!\n");
+}
+
+void killSignalTest(){
     /// test signal kill
     /// create new child
+    printf(1, "\nkill signal test- create a child and kill him\n");
     pid=fork();
     if (pid==0){
         // live forever
-        while(1)  {}
-        
+        while(1)  { printf(1, "my father is going to kill me !\n");}
         /// shouldnt reach here
         printf(1, "kill signal test FAILED!!\n");
         exit();
     }
-    printf(1, "created process with pid: %d\n", pid);
+
     kill(pid, 9);
     wait();
     
-    printf(1, "kill signal test passed!\n");
-    
-    
+    printf(1, "kill signal test PASSED!\n");    
+}
+
+void stopAndContSignalTest(){
     /// test signals stop and cont - should not see print of parent and child collisions
     /// create new child
+    printf(1, "\nstop and cont signal test- create a child, stop him for a while and let him continue\n");
     pid=fork();
     if (pid==0){
         int i;
-        for(i=0;i<200;i++){
+        for(i=0;i<81;i++){
             printf(1, "child action: %d\n", i);
         }
         exit();
     }
     
     int i;
-    for(i=0;i<20;i++){
+    for(i=0;i<21;i++){
         printf(1, "now we fight!: %d\n", i);
     }
 
     /// stop the child
     kill(pid, 17);
-    for(i=0;i<20;i++){
+    for(i=0;i<11;i++){
         printf(1, "I stopped my son haha: %d\n", i);
     }
     
@@ -75,12 +82,11 @@ main(int argc, char *argv[])
     kill(pid, 19);
     wait();
     
-    printf(1, "stop and cont signals test passed!\n");
-    
-    printf(1, "all signal tests passed!\n");
-    
-    
-    printf(1, "test cas\n");
+    printf(1, "stop and cont signals test PASSED!\n");
+}
+
+void casTest(){
+    printf(1, "\ntest cas\n");
     int inadd=0;
     int expected= 0;
     int newval=1;
@@ -98,13 +104,21 @@ main(int argc, char *argv[])
     if(bol || inadd!=0 ){
         printf(1, "cas test FAILED\n");
     }
-    printf(1, "cas test passed!\n");
+    printf(1, "cas test PASSED!\n");
+    
+    
+    printf(1, "\nALL TESTS PASSED!\n");
+}
+
+int
+main(int argc, char *argv[])
+{
+
+    userHandlerTest();
+    killSignalTest();
+    stopAndContSignalTest();
+    casTest();
     exit();
 }
 
-void
-user1Hanlder(int signum){
-    printf(1, "I handle first signal %x\n", signum);
-    flag = !flag;
- 
-}
+
