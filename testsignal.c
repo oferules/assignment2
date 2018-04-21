@@ -1,8 +1,8 @@
+#include "param.h"
 #include "types.h"
 #include "stat.h"
 #include "user.h"
 #include "x86.h"
-
 
 
 int flag = 1;
@@ -17,8 +17,6 @@ user1Hanlder(int signum){
 }
 
 void userHandlerTest(){
-    printf(1, "\nenter signal tests\n");
-    
     /// test user handle signal
     printf(1, "\nuser handler test- create a child with hanlder\n");
     sighandler_t handler = user1Hanlder;
@@ -85,6 +83,46 @@ void stopAndContSignalTest(){
     printf(1, "stop and cont signals test PASSED!\n");
 }
 
+
+void signalMaskTest(){
+    /// test signal mask- change it to block all signals and send a signal
+    /// create new child
+    printf(1, "\nsignal mask test- block signals and send to child\n");
+    printf(1, "father block all signals tries to kill child \n");
+    sigprocmask(0);
+    
+    pid=fork();
+    if (pid==0){
+        sleep(20);
+        printf(1, "child un-block all signals and need to die right after\n");
+        sigprocmask(0xffffffff);
+        printf(1, "signal mask test FAILED\n");
+        exit();
+        
+    }
+    // try to kill the child
+    kill(pid, 9);
+    wait();
+    printf(1, "signal mask test PASSED!\n");
+}
+
+void sleepTest(){
+    printf(1, "\ntest sleep\n");
+
+    pid=fork();
+    if (pid==0){
+        printf(1, "child going to sleep for a while, meanwhile father wait!\n");
+        sleep(400);
+        printf(1, "child wake up!\n");
+        exit();
+    }
+    wait();
+
+    printf(1, "sleep test PASSED!\n");
+
+    
+}
+
 void casTest(){
     printf(1, "\ntest cas\n");
     int inadd=0;
@@ -105,19 +143,21 @@ void casTest(){
         printf(1, "cas test FAILED\n");
     }
     printf(1, "cas test PASSED!\n");
-    
-    
-    printf(1, "\nALL TESTS PASSED!\n");
 }
 
 int
 main(int argc, char *argv[])
 {
-
+    printf(1, "\nenter signal tests\n");
+    
     userHandlerTest();
     killSignalTest();
     stopAndContSignalTest();
+    signalMaskTest();
+    sleepTest();
     casTest();
+    
+    printf(1, "\nALL TESTS PASSED!\n");
     exit();
 }
 
